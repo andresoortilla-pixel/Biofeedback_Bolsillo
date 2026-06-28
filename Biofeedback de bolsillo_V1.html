@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medidor de Frecuencia y Regulación</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Arial', sans-serif; }
+        body {
+            background-color: #0b0f19;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 500px;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .hidden { display: none !important; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        h1 { font-size: 1.8rem; color: #3b82f6; margin-bottom: 20px; line-height: 1.2; }
+        p { font-size: 1.1rem; color: #9ca3af; line-height: 1.5; margin-bottom: 30px; }
+        .highlight { color: #f43f5e; font-weight: bold; }
+
+        /* Botones */
+        .btn {
+            background: #2563eb; color: white;
+            border: none; padding: 15px 30px;
+            font-size: 1.1rem; font-weight: bold;
+            border-radius: 30px; cursor: pointer;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+            transition: transform 0.1s, background 0.2s;
+            margin-bottom: 15px; width: 100%; max-width: 300px;
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn-secondary { background: #334155; box-shadow: none; color: #cbd5e1; }
+        .btn-secondary:active { background: #1e293b; }
+        .btn-warning { background: #f59e0b; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4); }
+        .btn-success { background: #10b981; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); }
+
+        .btn-tap {
+            background: #f43f5e; width: 200px; height: 200px;
+            border-radius: 50%; font-size: 1.5rem; font-weight: bold;
+            box-shadow: 0 0 30px rgba(244, 63, 94, 0.6);
+            margin: 20px 0; display: flex; align-items: center; justify-content: center;
+            user-select: none; cursor: pointer;
+        }
+        .btn-tap:active { background: #e11d48; transform: scale(0.9); box-shadow: 0 0 10px rgba(244, 63, 94, 0.4); }
+
+        /* Textos Grandes */
+        .huge-text { font-size: 5rem; font-weight: 900; color: #fbbf24; margin: 20px 0; }
+        
+        /* Resultados */
+        .result-box { padding: 25px; border-radius: 20px; width: 100%; margin-bottom: 25px; background: #1e293b; border: 1px solid #334155; }
+        .status-text { font-size: 1.3rem; font-weight: bold; margin-top: 15px; color: #ffffff; }
+
+        /* Animación de Respiración */
+        #animation-container {
+            width: 100%; height: 300px; background: #1e293b;
+            border-radius: 15px; position: relative; margin-top: 20px;
+            overflow: hidden; border: 1px solid #334155;
+        }
+        #breath-ball {
+            width: 40px; height: 40px; background: #3b82f6;
+            border-radius: 50%; position: absolute;
+            bottom: 10%; left: 10%;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
+            transform: translate(-50%, 50%);
+        }
+        .phase-text { font-size: 2.5rem; font-weight: 900; color: #ffffff; letter-spacing: 3px; }
+        .timer-text { font-size: 1.2rem; color: #9ca3af; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="screen-home" class="screen">
+        <h1>Bienvenido al Biofeedback</h1>
+        <p style="margin-bottom: 40px;">¿Cómo podemos ayudarte en este momento?</p>
+        
+        <button class="btn" onclick="showScreen('screen-intro')">Quiero medir mi Frecuencia Cardíaca</button>
+        <button class="btn btn-warning" style="margin-top: 10px;" onclick="showScreen('screen-empathy')">Me siento Ansioso o Estresado</button>
+    </div>
+
+    <div id="screen-empathy" class="screen hidden">
+        <h1 style="color: #f59e0b;">Es pura biología.</h1>
+        <p style="text-align: left; padding: 0 10px;">Sentir ansiedad no es un error de tu mente, es tu biología intentando protegerte. Tu sistema de alerta está encendido.</p>
+        <p style="text-align: left; padding: 0 10px; color: #cbd5e1;">Vamos a usar tu respiración para avisarle a tu sistema nervioso que estás a salvo.</p>
+        <button class="btn btn-success" style="margin-top: 20px;" onclick="startRegulationIntro()">INICIAR REGULACIÓN</button>
+        <button class="btn btn-secondary" onclick="showScreen('screen-home')">Volver</button>
+    </div>
+
+    <div id="screen-intro" class="screen hidden">
+        <h1>Mide tu Pulso</h1>
+        <p>Coloca tus dos dedos en el cuello (<span class="highlight">arteria carótida</span>) o en la muñeca.</p>
+        <p>Con tu otra mano, presiona el botón rojo que aparecerá en la pantalla <strong>CADA VEZ</strong> que sientas un latido.</p>
+        <button class="btn" onclick="startAppCountdown()">COMENZAR MEDICIÓN</button>
+        <button class="btn btn-secondary" onclick="showScreen('screen-home')">Volver</button>
+    </div>
+
+    <div id="screen-countdown" class="screen hidden">
+        <h1>Prepárate...</h1>
+        <div id="init-timer" class="huge-text">3</div>
+    </div>
+
+    <div id="screen-tap" class="screen hidden">
+        <h1 style="color: #f43f5e;">¡Siente tu pulso!</h1>
+        <p>Tiempo restante: <span id="tap-timer" style="font-weight:bold; color: #fbbf24;">10s</span></p>
+        <div class="btn-tap" id="btn-tap" onclick="registerTap()">PULSA AQUÍ<br>POR LATIDO</div>
+        <p>Latidos contados: <span id="tap-count">0</span></p>
+    </div>
+
+    <div id="screen-result" class="screen hidden">
+        <h1>Tu Análisis Fisiológico</h1>
+        <div id="result-container" class="result-box">
+            <div id="bpm-display" class="huge-text" style="margin: 0;">0</div>
+            <p style="margin-bottom: 10px;">Latidos por minuto (LPM)</p>
+            <div id="status-msg" class="status-text"></div>
+        </div>
+        <button class="btn btn-warning" onclick="startRegulationIntro()">SÍ, QUIERO REGULARME</button>
+        <button class="btn btn-secondary" onclick="resetApp()">Eso es todo por hoy</button>
+    </div>
+
+    <div id="screen-breath-intro" class="screen hidden">
+        <h1>Técnica 4-7-8</h1>
+        <p>Respira al ritmo de la pelota azul:</p>
+        <ul style="text-align: left; color: #9ca3af; line-height: 2; margin-bottom: 20px; padding-left: 20px;">
+            <li>Si la pelota <strong>SUBE</strong> ➔ Inhala por la nariz.</li>
+            <li>Si la pelota <strong>VA RECTA</strong> ➔ Mantén el aire.</li>
+            <li>Si la pelota <strong>BAJA</strong> ➔ Exhala lento por la boca.</li>
+        </ul>
+        <button class="btn" onclick="startBreathCountdown()">ENTENDIDO</button>
+    </div>
+
+    <div id="screen-breath-countdown" class="screen hidden">
+        <div id="b-count-text" class="huge-text">Atento</div>
+    </div>
+
+    <div id="screen-breathing" class="screen hidden" style="width: 100%; max-width: 500px;">
+        <div class="phase-text" id="b-phase">INHALA</div>
+        <div class="timer-text" id="b-instruction">Prepárate</div>
+        <div id="animation-container">
+            <div id="breath-ball"></div>
+        </div>
+        <p style="margin-top: 15px; font-weight: bold; color: #9ca3af;">Ciclo: <span id="cycle-count" style="color: #fff;">1</span> / 4</p>
+    </div>
+
+    <div id="screen-final" class="screen hidden">
+        <h1 style="color: #10b981; font-size: 2.2rem;">¡Lo lograste!</h1>
+        <p style="margin-top: 20px;">Has retomado el control de tu sistema nervioso usando tu propia respiración.</p>
+        <button class="btn btn-success" style="margin-top: 30px;" onclick="resetApp()">VOLVER AL INICIO</button>
+    </div>
+
+    <script>
+        // Variables
+        let taps = 0;
+        let cyclesCompleted = 0;
+        const totalCycles = 4;
+        let tapInterval;
+
+        // Utilidades
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function resetApp() {
+            clearInterval(tapInterval);
+            showScreen('screen-home');
+        }
+
+        // --- FASE 1: MEDICIÓN ---
+        function startAppCountdown() {
+            showScreen('screen-countdown');
+            let time = 3;
+            document.getElementById('init-timer').innerText = time;
+            
+            let countInterval = setInterval(() => {
+                time--;
+                if(time > 0) {
+                    document.getElementById('init-timer').innerText = time;
+                } else {
+                    clearInterval(countInterval);
+                    startTappingPhase();
+                }
+            }, 1000);
+        }
+
+        function startTappingPhase() {
+            showScreen('screen-tap');
+            taps = 0;
+            document.getElementById('tap-count').innerText = taps;
+            let timeLeft = 10;
+            document.getElementById('tap-timer').innerText = timeLeft + 's';
+            
+            tapInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('tap-timer').innerText = timeLeft + 's';
+                
+                if(timeLeft <= 0) {
+                    clearInterval(tapInterval);
+                    calculateResults();
+                }
+            }, 1000);
+        }
+
+        function registerTap() {
+            taps++;
+            document.getElementById('tap-count').innerText = taps;
+            const btn = document.getElementById('btn-tap');
+            btn.style.transform = 'scale(0.85)';
+            setTimeout(() => btn.style.transform = 'scale(1)', 100);
+        }
+
+        function calculateResults() {
+            const bpm = taps * 6;
+            document.getElementById('bpm-display').innerText = bpm;
+            const statusMsg = document.getElementById('status-msg');
+
+            if(bpm <= 85) {
+                statusMsg.innerHTML = '<span style="color: #10b981;">Tu ritmo es estable.</span><br><span style="font-size: 1rem; font-weight: normal; color: #9ca3af; display:block; margin-top:10px;">¿Quieres aprender a bajarlo aún más?</span>';
+            } else {
+                statusMsg.innerHTML = '<span style="color: #f59e0b;">Tu corazón está activo.</span><br><span style="font-size: 1rem; font-weight: normal; color: #9ca3af; display:block; margin-top:10px;">Entrena tu respiración para volver a la calma.</span>';
+            }
+            showScreen('screen-result');
+        }
+
+        // --- FASE 2: REGULACIÓN ---
+        function startRegulationIntro() {
+            showScreen('screen-breath-intro');
+        }
+
+        function startBreathCountdown() {
+            showScreen('screen-breath-countdown');
+            const words = ["Atento", "Preparado", "¡Comencemos!"];
+            let idx = 0;
+            const textEl = document.getElementById('b-count-text');
+            textEl.innerText = words[idx];
+
+            let bInterval = setInterval(() => {
+                idx++;
+                if(idx < words.length) {
+                    textEl.innerText = words[idx];
+                } else {
+                    clearInterval(bInterval);
+                    cyclesCompleted = 0;
+                    startBreathingCycle();
+                }
+            }, 1200);
+        }
+
+        function startBreathingCycle() {
+            if(cyclesCompleted >= totalCycles) {
+                showScreen('screen-final');
+                return;
+            }
+            
+            showScreen('screen-breathing');
+            document.getElementById('cycle-count').innerText = cyclesCompleted + 1;
+            
+            const ball = document.getElementById('breath-ball');
+            const phase = document.getElementById('b-phase');
+            const instruction = document.getElementById('b-instruction');
+
+            ball.style.transition = 'none';
+            ball.style.bottom = '10%';
+            ball.style.left = '10%';
+            void ball.offsetWidth; 
+
+            // 1. INHALA
+            ball.style.transition = 'bottom 4s linear, left 4s linear';
+            ball.style.bottom = '80%';
+            ball.style.left = '30%';
+            phase.innerText = "INHALA";
+            instruction.innerText = "Sube la pelota";
+
+            setTimeout(() => {
+                // 2. MANTÉN
+                ball.style.transition = 'bottom 7s linear, left 7s linear';
+                ball.style.bottom = '80%';
+                ball.style.left = '70%';
+                phase.innerText = "MANTÉN";
+                instruction.innerText = "Línea recta";
+
+                setTimeout(() => {
+                    // 3. EXHALA
+                    ball.style.transition = 'bottom 8s linear, left 8s linear';
+                    ball.style.bottom = '10%';
+                    ball.style.left = '90%';
+                    phase.innerText = "EXHALA";
+                    instruction.innerText = "Baja la pelota";
+
+                    setTimeout(() => {
+                        cyclesCompleted++;
+                        startBreathingCycle(); 
+                    }, 8000);
+                }, 7000);
+            }, 4000);
+        }
+    </script>
+</body>
+</html>
